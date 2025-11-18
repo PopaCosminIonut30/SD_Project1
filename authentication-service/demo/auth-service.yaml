@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: Auth Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost/api/auth
+paths:
+  /register:
+    post:
+      summary: Register credentials for an existing user
+      description: Creates username/password/role for a given userId.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequestDTO'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Bad Request
+
+  /login:
+    post:
+      summary: Login with username and password
+      description: Returns a JWT token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequestDTO'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDTO'
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    RegisterRequestDTO:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        username:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, CLIENT]
+
+    LoginRequestDTO:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    LoginResponseDTO:
+      type: object
+      properties:
+        token:
+          type: string
