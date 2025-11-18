@@ -3,4 +3,4 @@
 -- Creăm bazele de date
 CREATE DATABASE user_db;
 CREATE DATABASE device_db;
-CREATE DATABASE credential_db;
+CREATE DATABASE credential_db;ls -l

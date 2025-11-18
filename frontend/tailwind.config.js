@@ -2,7 +2,7 @@
 export default {
     content: [
         "./index.html",
-        "./app.jsx", // Îi spunem să scaneze și app.jsx
+        "./app.jsx",
         "./main.jsx",
     ],
     theme: {

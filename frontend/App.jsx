@@ -429,14 +429,12 @@ const ClientDashboard = ({ user, token, api }) => {
   );
 };
 
-// --- (ACTUALIZAT) Componenta Dashboard Admin ---
 const AdminDashboard = ({ user, token, api }) => {
   const [users, setUsers] = useState([]);
   const [devices, setDevices] = useState([]);
   const [view, setView] = useState('users');
   const [apiError, setApiError] = useState(null);
 
-  // --- (NOU) Stare pentru Modale ---
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
@@ -763,14 +761,12 @@ const AdminDashboard = ({ user, token, api }) => {
   );
 };
 
-// --- Componenta principală App (Neschimbată) ---
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('jwtToken'));
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('login'); // 'login', 'admin', 'client'
   const [error, setError] = useState(null);
 
-  // --- API Helper (Neschimbat) ---
   const api = {
     request: async (method, path, body = null) => {
       const headers = new Headers({
@@ -794,7 +790,6 @@ export default function App() {
     delete: function(path) { return this.request('DELETE', path) },
   };
 
-  // --- Efecte (Neschimbat) ---
   useEffect(() => {
     if (token) {
       localStorage.setItem('jwtToken', token);
