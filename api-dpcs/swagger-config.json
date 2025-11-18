@@ -1,0 +1,7 @@
+{
+  "urls": [
+    { "url": "/auth-openapi.yaml", "name": "Auth Service" },
+    { "url": "/user-openapi.yaml", "name": "User Service" },
+    { "url": "/device-openapi.yaml", "name": "Device Service" }
+  ]
+}

@@ -1,0 +1,4 @@
+/* Importăm cele 3 straturi de bază ale Tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -1,0 +1,130 @@
+services:
+  # 1. BAZA DE DATE (PostgreSQL)
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
+    volumes:
+      - ./postgres/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - microservice-network
+
+  # 2. USER SERVICE
+  user-service:
+    build:
+      context: ./user-service/demo
+    container_name: user-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      DB_IP: postgres-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DBNAME: user_db
+      PORT: 8080
+    networks:
+      - microservice-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.user-service.middlewares=strip-api"
+      - "traefik.http.services.user-service.loadbalancer.server.port=8080"
+
+  # 3. DEVICE SERVICE
+  device-service:
+    build:
+      context: ./device-service/demo
+    container_name: device-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      DB_IP: postgres-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DBNAME: device_db
+      PORT: 8081
+    networks:
+      - microservice-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.device-service.rule=PathPrefix(`/api/devices`)"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.device-service.middlewares=strip-api"
+      - "traefik.http.services.device-service.loadbalancer.server.port=8081"
+
+  # 4. AUTH SERVICE
+  auth-service:
+    build:
+      context: ./authentication-service/demo
+    container_name: auth-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    environment:
+      DB_IP: postgres-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DBNAME: credential_db
+      PORT: 8082
+    networks:
+      - microservice-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth-service.rule=PathPrefix(`/api/auth`)"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.auth-service.middlewares=strip-api"
+      - "traefik.http.services.auth-service.loadbalancer.server.port=8082"
+
+  # 5. API GATEWAY (Traefik)
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik-proxy
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+    ports:
+      - "80:80"
+      - "8090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - microservice-network
+
+  # 6. SWAGGER UI
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    ports:
+      - "8083:8080"
+    environment:
+      SWAGGER_JSON: /api-docs.yaml
+    volumes:
+      - ./swagger/api-docs.yaml:/api-docs.yaml
+    networks:
+      - microservice-network
+
+networks:
+  microservice-network:
+    driver: bridge
+
+volumes:
+  db-data:
