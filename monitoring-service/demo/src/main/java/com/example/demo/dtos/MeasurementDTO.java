@@ -1,0 +1,26 @@
+package com.example.demo.dtos;
+
+import java.io.Serializable;
+import java.util.UUID;
+
+public class MeasurementDTO implements Serializable {
+    private long timestamp;
+    private UUID deviceId;
+    private double measurementValue;
+
+    public MeasurementDTO() {}
+
+    public long getTimestamp() { return timestamp; }
+    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public UUID getDeviceId() { return deviceId; }
+    public void setDeviceId(UUID deviceId) { this.deviceId = deviceId; }
+
+    public double getMeasurementValue() { return measurementValue; }
+    public void setMeasurementValue(double measurementValue) { this.measurementValue = measurementValue; }
+
+    @Override
+    public String toString() {
+        return "MeasurementDTO{timestamp=" + timestamp + ", deviceId=" + deviceId + ", value=" + measurementValue + '}';
+    }
+}

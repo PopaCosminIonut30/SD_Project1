@@ -18,6 +18,15 @@ services:
       retries: 5
     networks:
       - microservice-network
+  #2. COADA
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # Portul pentru comunicarea între servicii
+      - "15672:15672" # Portul pentru interfața web de management
+    networks:
+      - microservice-network
 
   # 2. USER SERVICE
   user-service:
@@ -90,6 +99,31 @@ services:
       - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
       - "traefik.http.routers.auth-service.middlewares=strip-api"
       - "traefik.http.services.auth-service.loadbalancer.server.port=8082"
+  # 5. MONITORING SERVICE
+  monitoring-service:
+    build:
+      context: ./monitoring-service/demo
+    container_name: monitoring-service
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    environment:
+      DB_IP: postgres-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DBNAME: monitoring_db
+      PORT: 8083
+    networks:
+      - microservice-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.monitoring-service.rule=PathPrefix(`/api/monitoring`)"
+      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.routers.monitoring-service.middlewares=strip-api"
+      - "traefik.http.services.monitoring-service.loadbalancer.server.port=8083"
 
   # 5. API GATEWAY (Traefik)
   traefik:
@@ -108,6 +142,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - microservice-network
+
 
   # 6. SWAGGER UI
   swagger-ui:
