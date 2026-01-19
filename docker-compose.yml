@@ -125,6 +125,33 @@ services:
       - "traefik.http.routers.monitoring-service.middlewares=strip-api"
       - "traefik.http.services.monitoring-service.loadbalancer.server.port=8083"
 
+
+    # 7. WEBSOCKET & CHAT SERVICE
+  websocket-service:
+      build:
+        context: ./websocket-service/demo
+      container_name: websocket-service
+      depends_on:
+        postgres-db:
+          condition: service_healthy
+        rabbitmq:
+          condition: service_started
+      environment:
+        DB_IP: postgres-db
+        DB_PORT: 5432
+        DB_USER: ${DB_USER:-postgres}
+        DB_PASSWORD: ${DB_PASSWORD:-root}
+        DB_DBNAME: websocket_db
+        PORT: 8085
+      networks:
+        - microservice-network
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.websocket-service.rule=PathPrefix(`/api/chat`) || PathPrefix(`/ws-energy`)"
+        - "traefik.http.middlewares.strip-api-ws.stripprefix.prefixes=/api"
+        - "traefik.http.routers.websocket-service.middlewares=strip-api-ws"
+        - "traefik.http.services.websocket-service.loadbalancer.server.port=8085"
+
   # 5. API GATEWAY (Traefik)
   traefik:
     image: traefik:v3.0
@@ -163,3 +190,5 @@ networks:
 
 volumes:
   db-data:
+
+

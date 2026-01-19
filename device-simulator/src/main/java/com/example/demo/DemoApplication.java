@@ -15,8 +15,7 @@ import java.io.IOException;
 import java.util.UUID;
 
 @SpringBootApplication
-public class DemoApplication implements CommandLineRunner { // Numele clasei: DemoApplication
-
+public class DemoApplication implements CommandLineRunner {
 	@Autowired
 	private RabbitTemplate rabbitTemplate;
 
@@ -30,13 +29,11 @@ public class DemoApplication implements CommandLineRunner { // Numele clasei: De
 	private long delay;
 
 	public static void main(String[] args) {
-		// CORECTAT: Pornim DemoApplication.class, nu DeviceSimulatorApplication.class
 		SpringApplication.run(DemoApplication.class, args);
 	}
 
 	@Override
 	public void run(String... args) throws Exception {
-		// Logica rămâne aceeași...
 		UUID deviceId;
 		try {
 			deviceId = UUID.fromString(deviceIdString);

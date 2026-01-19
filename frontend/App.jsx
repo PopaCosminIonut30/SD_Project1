@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
+import ChatAndNotification from './ChatAndNotification'; // Fără "/components/"
 // --- Funcție Helper pentru a decodifica un JWT ---
 function parseJwt(token) {
   try {
@@ -868,6 +868,7 @@ export default function App() {
 
         <main>
           {renderPage()}
+          {user && <ChatAndNotification user={user} />}
         </main>
       </div>
   );

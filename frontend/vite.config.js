@@ -4,15 +4,16 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [react()],
+    define: { global: 'globalThis' },
     server: {
-        // Acesta este pasul CRUCIAL
-        // Spunem serverului de dev (Vite) să redirecționeze toate cererile /api
-        // către backend-ul nostru (Traefik, care rulează pe portul 80)
         proxy: {
-            '/api': {
-                target: 'http://localhost', // Portul 80 (standard HTTP) al Traefik
-                changeOrigin: true,
-            }
+            '/api': { target: 'http://localhost', changeOrigin: true },
+            // ADAUGĂ ACEASTA pentru WebSocket prin Traefik
+            '/ws-energy': {
+                target: 'http://localhost:8085',
+                ws: true,
+                changeOrigin: true
+            },
         }
     }
 })

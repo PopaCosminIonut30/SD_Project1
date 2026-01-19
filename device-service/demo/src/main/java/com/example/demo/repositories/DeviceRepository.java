@@ -8,7 +8,7 @@ import java.util.UUID;
 public interface DeviceRepository extends JpaRepository<Device, UUID> {
 
     /**
-     * Numele metodei "findByUserId" (cu 'u' mic)
+     * Numele metodei "findByUserId"
      * trebuie să se potrivească perfect cu câmpul "private UUID userId"
      * din entitatea ta Device.java
      */

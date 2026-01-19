@@ -10,8 +10,15 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String DATA_QUEUE = "device_data_queue";
-    // (NOU) Coada de sincronizare
+
     public static final String DEVICE_SYNC_QUEUE = "sync_device_queue";
+
+    public static final String NOTIFICATION_QUEUE = "notification_queue";
+
+    @Bean
+    public Queue notificationQueue() {
+        return new Queue(NOTIFICATION_QUEUE, true);
+    }
 
     @Bean
     public Queue dataQueue() {

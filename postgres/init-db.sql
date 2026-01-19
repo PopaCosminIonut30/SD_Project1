@@ -5,3 +5,4 @@ CREATE DATABASE user_db;
 CREATE DATABASE device_db;
 CREATE DATABASE credential_db;
 CREATE DATABASE monitoring_db;
+CREATE DATABASE websocket_db;
