@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -10,53 +9,59 @@ const ChatAndNotification = ({ user }) => {
     const [isOpen, setIsOpen] = useState(false);
     const stompClient = useRef(null);
 
-    // În interiorul useEffect
     useEffect(() => {
-        // UTILIZĂM CALE RELATIVĂ - Vite va face proxy la localhost:8085
-        const socket = new SockJS('/ws-energy');
+        // 1. Definim URL-ul (ws:// pentru WebSocket nativ prin Traefik)
+        const socketUrl = 'ws://localhost/ws-energy';
+        const socket = new WebSocket(socketUrl);
+
+        // 2. Inițializăm clientul Stomp peste socket-ul nativ
         const client = Stomp.over(socket);
 
+        // Dezactivăm log-urile de debug pentru a vedea doar mesajele noastre
+        client.debug = (str) => {
+            if (str.includes("Received") || str.includes("Connected")) console.log(str);
+        };
+
+        // 3. Încercăm conectarea
         client.connect({}, (frame) => {
-            console.log('Connected to WebSocket: ' + frame);
+            console.log('✅ CONNECTED TO WEBSOCKET');
             stompClient.current = client;
 
-            // Abonările se fac DOAR în interiorul acestui callback de succes
+            // Subscriere la notificări de supraconsum
             client.subscribe('/topic/notifications', (msg) => {
                 const alertData = JSON.parse(msg.body);
                 toast.error(`⚠️ ALERTA: ${alertData.message}`, { position: "top-right" });
             });
 
+            // Subscriere la chat
             client.subscribe('/topic/chat', (msg) => {
                 const chatMsg = JSON.parse(msg.body);
                 setMessages((prev) => [...prev, chatMsg]);
             });
+
         }, (error) => {
-            console.error('WebSocket connection error:', error);
+            console.error('❌ WebSocket error:', error);
         });
 
+        // Cleanup la închiderea componentei
         return () => {
-            if (stompClient.current) stompClient.current.disconnect();
+            if (stompClient.current) {
+                stompClient.current.disconnect();
+                console.log('Disconnected');
+            }
         };
     }, [user]);
 
-// Corecție în sendMessage
     const sendMessage = (e) => {
-        if (e) e.preventDefault(); // Prevenim refresh-ul paginii
-
+        e.preventDefault();
         if (input.trim() && stompClient.current && stompClient.current.connected) {
             const chatMsg = {
-                sender: user.username,
+                sender: user?.username || "Guest",
                 content: input,
                 timestamp: Date.now()
             };
-
-            // Pentru librăria 'stompjs' veche, folosim .send
             stompClient.current.send("/app/chat", {}, JSON.stringify(chatMsg));
-
-            setMessages(prev => [...prev, chatMsg]);
             setInput('');
-        } else {
-            toast.warn("Conexiunea nu este gata. Mai încearcă o dată.");
         }
     };
 
@@ -66,17 +71,16 @@ const ChatAndNotification = ({ user }) => {
             <div className="fixed bottom-4 right-4 z-50">
                 <button
                     onClick={() => setIsOpen(!isOpen)}
-                    className="bg-cyan-600 p-4 rounded-full shadow-lg hover:bg-cyan-500 transition-all"
+                    className="bg-cyan-600 p-4 rounded-full shadow-lg hover:bg-cyan-500 transition-all text-white font-bold"
                 >
-                    Chat Support
+                    {isOpen ? 'Închide' : 'Suport Chat'}
                 </button>
-
                 {isOpen && (
-                    <div className="bg-gray-800 border border-gray-700 w-80 h-96 mt-2 rounded-lg flex flex-col shadow-2xl">
+                    <div className="bg-gray-800 border border-gray-700 w-80 h-96 mt-2 rounded-lg flex flex-col shadow-2xl overflow-hidden">
                         <div className="p-3 border-b border-gray-700 font-bold text-cyan-400">Support Chat</div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-2">
                             {messages.map((m, i) => (
-                                <div key={i} className={`p-2 rounded-lg text-sm ${m.sender === user.username ? 'bg-cyan-900 ml-8' : 'bg-gray-700 mr-8'}`}>
+                                <div key={i} className={`p-2 rounded-lg text-sm text-white ${m.sender === user?.username ? 'bg-cyan-900 ml-8' : 'bg-gray-700 mr-8'}`}>
                                     <span className="block text-xs text-gray-400 font-bold">{m.sender}</span>
                                     {m.content}
                                 </div>
@@ -86,10 +90,10 @@ const ChatAndNotification = ({ user }) => {
                             <input
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                className="flex-1 bg-gray-700 rounded-l p-2 outline-none text-sm"
-                                placeholder="Type a message..."
+                                className="flex-1 bg-gray-700 text-white rounded-l p-2 outline-none text-sm"
+                                placeholder="Scrie un mesaj..."
                             />
-                            <button className="bg-cyan-600 px-3 rounded-r">Send</button>
+                            <button type="submit" className="bg-cyan-600 text-white px-3 rounded-r">Trimite</button>
                         </form>
                     </div>
                 )}

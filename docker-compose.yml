@@ -1,8 +1,8 @@
+
 services:
-  # 1. BAZA DE DATE (PostgreSQL)
+  # 1. BAZA DE DATE
   postgres-db:
     image: postgres:16-alpine
-    container_name: postgres-db
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
@@ -11,31 +11,30 @@ services:
       - db-data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
     networks:
       - microservice-network
-  #2. COADA
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # Recomandat pentru DB să stea pe un nod stabil
+
+  # 2. RABBITMQ
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: rabbitmq
     ports:
-      - "5672:5672"   # Portul pentru comunicarea între servicii
-      - "15672:15672" # Portul pentru interfața web de management
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - microservice-network
+    deploy:
+      replicas: 1
 
-  # 2. USER SERVICE
+  # 3. USER SERVICE
   user-service:
-    build:
-      context: ./user-service/demo
-    container_name: user-service
+    image: tema1-user-service:latest # Numele imaginii construite local
+    # build: ./user-service/demo  <-- ȘTERS (Swarm nu face build)
     depends_on:
-      postgres-db:
-        condition: service_healthy
+      - postgres-db
     environment:
       DB_IP: postgres-db
       DB_PORT: 5432
@@ -45,21 +44,22 @@ services:
       PORT: 8080
     networks:
       - microservice-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
-      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
-      - "traefik.http.routers.user-service.middlewares=strip-api"
-      - "traefik.http.services.user-service.loadbalancer.server.port=8080"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels: # AICI E SCHIMBAREA MAJORĂ: Labels sub Deploy
+        - "traefik.enable=true"
+        - "traefik.http.routers.user-service.rule=PathPrefix(`/api/users`)"
+        - "traefik.http.services.user-service.loadbalancer.server.port=8080"
+        - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
+        - "traefik.http.routers.user-service.middlewares=strip-api"
 
-  # 3. DEVICE SERVICE
+  # 4. DEVICE SERVICE
   device-service:
-    build:
-      context: ./device-service/demo
-    container_name: device-service
+    image: tema1-device-service:latest
     depends_on:
-      postgres-db:
-        condition: service_healthy
+      - postgres-db
     environment:
       DB_IP: postgres-db
       DB_PORT: 5432
@@ -69,21 +69,21 @@ services:
       PORT: 8081
     networks:
       - microservice-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.device-service.rule=PathPrefix(`/api/devices`)"
-      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
-      - "traefik.http.routers.device-service.middlewares=strip-api"
-      - "traefik.http.services.device-service.loadbalancer.server.port=8081"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.device-service.rule=PathPrefix(`/api/devices`)"
+        - "traefik.http.services.device-service.loadbalancer.server.port=8081"
+        - "traefik.http.routers.device-service.middlewares=strip-api"
 
-  # 4. AUTH SERVICE
+  # 5. AUTH SERVICE
   auth-service:
-    build:
-      context: ./authentication-service/demo
-    container_name: auth-service
+    image: tema1-auth-service:latest
     depends_on:
-      postgres-db:
-        condition: service_healthy
+      - postgres-db
     environment:
       DB_IP: postgres-db
       DB_PORT: 5432
@@ -93,22 +93,22 @@ services:
       PORT: 8082
     networks:
       - microservice-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth-service.rule=PathPrefix(`/api/auth`)"
-      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
-      - "traefik.http.routers.auth-service.middlewares=strip-api"
-      - "traefik.http.services.auth-service.loadbalancer.server.port=8082"
-  # 5. MONITORING SERVICE
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.auth-service.rule=PathPrefix(`/api/auth`)"
+        - "traefik.http.services.auth-service.loadbalancer.server.port=8082"
+        - "traefik.http.routers.auth-service.middlewares=strip-api"
+
+  # 6. MONITORING SERVICE
   monitoring-service:
-    build:
-      context: ./monitoring-service/demo
-    container_name: monitoring-service
+    image: tema1-monitoring-service:latest
     depends_on:
-      postgres-db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_started
+      - postgres-db
+      - rabbitmq
     environment:
       DB_IP: postgres-db
       DB_PORT: 5432
@@ -118,77 +118,103 @@ services:
       PORT: 8083
     networks:
       - microservice-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.monitoring-service.rule=PathPrefix(`/api/monitoring`)"
-      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
-      - "traefik.http.routers.monitoring-service.middlewares=strip-api"
-      - "traefik.http.services.monitoring-service.loadbalancer.server.port=8083"
-
-
-    # 7. WEBSOCKET & CHAT SERVICE
-  websocket-service:
-      build:
-        context: ./websocket-service/demo
-      container_name: websocket-service
-      depends_on:
-        postgres-db:
-          condition: service_healthy
-        rabbitmq:
-          condition: service_started
-      environment:
-        DB_IP: postgres-db
-        DB_PORT: 5432
-        DB_USER: ${DB_USER:-postgres}
-        DB_PASSWORD: ${DB_PASSWORD:-root}
-        DB_DBNAME: websocket_db
-        PORT: 8085
-      networks:
-        - microservice-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.websocket-service.rule=PathPrefix(`/api/chat`) || PathPrefix(`/ws-energy`)"
-        - "traefik.http.middlewares.strip-api-ws.stripprefix.prefixes=/api"
-        - "traefik.http.routers.websocket-service.middlewares=strip-api-ws"
-        - "traefik.http.services.websocket-service.loadbalancer.server.port=8085"
+        - "traefik.http.routers.monitoring-service.rule=PathPrefix(`/api/monitoring`)"
+        - "traefik.http.services.monitoring-service.loadbalancer.server.port=8083"
+        - "traefik.http.routers.monitoring-service.middlewares=strip-api"
 
-  # 5. API GATEWAY (Traefik)
+  # 7. WEBSOCKET SERVICE
+  websocket-service:
+    image: tema1-websocket-service:v4
+    depends_on:
+      - postgres-db
+      - rabbitmq
+    environment:
+      logging.level.org.springframework.web: DEBUG
+      DB_IP: postgres-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_DBNAME: websocket_db
+      PORT: 8085
+    networks:
+      - microservice-network
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+          - "traefik.enable=true"
+
+          - "traefik.http.routers.ws-socket.rule=PathPrefix(`/ws-energy`)"
+          - "traefik.http.routers.ws-socket.service=websocket-service"
+          - "traefik.http.routers.ws-socket.entrypoints=web"
+          - "traefik.http.services.websocket-service.loadbalancer.server.port=8085"
+  # 8. TRAEFIK (Reverse Proxy)
   traefik:
     image: traefik:v3.0
-    container_name: traefik-proxy
     command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
+      # --- CONFIGURAȚIE NOUĂ PENTRU SWARM (v3) ---
+      - "--providers.swarm=true"  # Activăm provider-ul specific de Swarm
+      - "--providers.swarm.exposedbydefault=false" # Nu expunem totul automat
+      - "--providers.swarm.network=ems_microservice-network" # Numele rețelei (prefixat cu ems_)
+
+      # Entrypoints (Port 80)
       - "--entrypoints.web.address=:80"
+
+      # Dashboard (Port 8080 intern -> 8090 extern)
       - "--api.dashboard=true"
       - "--api.insecure=true"
+
+      # Logging (Opțional, ajută la debugging)
+      - "--log.level=INFO"
     ports:
-      - "80:80"
-      - "8090:8080"
+      - "80:80"     # Trafic web
+      - "8090:8080" # Dashboard
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - microservice-network
-
-
-  # 6. SWAGGER UI
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.role == manager ]
+  # 9. SWAGGER UI
   swagger-ui:
     image: swaggerapi/swagger-ui
-    container_name: swagger-ui
     ports:
-      - "8083:8080"
+      - "8088:8080" # Am schimbat portul extern ca să nu intre in conflict
     environment:
       SWAGGER_JSON: /api-docs.yaml
     volumes:
       - ./swagger/api-docs.yaml:/api-docs.yaml
     networks:
       - microservice-network
+    deploy:
+      replicas: 1
+    # 11. FRONTEND SERVICE
+  frontend:
+      image: tema1-frontend:latest
+      networks:
+        - microservice-network
+      deploy:
+        replicas: 1
+        labels:
+          - "traefik.enable=true"
+          - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+          - "traefik.http.routers.frontend.entrypoints=web"
+          - "traefik.http.routers.frontend.priority=1"
+          # ATENȚIE: Aici pui portul din vite.config.js (5173)
+          - "traefik.http.services.frontend.loadbalancer.server.port=5173"
 
 networks:
   microservice-network:
-    driver: bridge
+    driver: overlay # <--- IMPORTANT: Driverul devine Overlay în Swarm
 
 volumes:
   db-data:
-
-
